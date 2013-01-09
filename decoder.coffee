@@ -1,7 +1,6 @@
-
-// original script Manuel Heras (manuel@heras-gilsanz.com)
-// August 2002 -- modified by skystef 2004-2008
-
+#
+#   metar/taf decoder: github.com/maxp/metar-decoder
+#
 
 function add_output(text)
 {
