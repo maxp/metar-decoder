@@ -2,10 +2,6 @@
 #   metar/taf decoder: github.com/maxp/metar-decoder
 #
 
-function add_output(text)
-{
-    document.encoded.decreport.value = document.encoded.decreport.value + text;
-}
 
 function is_num_digit(ch)
 {
