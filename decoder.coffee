@@ -51,8 +51,7 @@ x.decode = (s) ->
 
   res.unk = []
   while ct < tokens.length
-    if decode_token(tokens[ct], res) is "RMK"
-      break
+    decode_tok(tokens[ct], res)
     ct += 1
 
   # TODO: process RMK
@@ -61,7 +60,9 @@ x.decode = (s) ->
   return res
 #-
 
-decode_token = (tok, res) ->
+int = (s) -> parseInt(s, 10)
+
+decode_tok = (tok, res) ->
 
   # wind
   t = tok.match /^(\d{3}|VRB)(\d{2,3})(G\d{2,3})?(KT|MPS|KMH)$/
@@ -69,20 +70,26 @@ decode_token = (tok, res) ->
     if t[4] isnt "MPS"    # only MPS accepted, KT/KMH not handled
       res.unk.push tok
       return
-    res.b = if t[1] is "VRB" then 360 else parseInt(t[1])
-    res.w = parseInt(t[2])
-    res.g = parseInt(t[3].substring(1)) if t[3]
+    res.b = if t[1] is "VRB" then 360 else int(t[1])
+    res.w = int(t[2])
+    res.g = int(t[3].substring(1)) if t[3]
     return
   #
 
   # Q barometer hPa
   t = tok.match /^Q(\d{3,4})$/
   if t
-    res.q = parseInt(t[1])
+    res.q = int(t[1])
+    return
+
+  t = tok.match /^(\d\d\d\d)$/
+  if t
+    res.v = int(t[1])
     return
 
   if tok is "CAVOK" or tok is "SKC"
     res.c = 0
+    res.v = 9999
     return
 
   # ? OVC
@@ -94,12 +101,17 @@ decode_token = (tok, res) ->
 
   t = tok.match /^(M?\d\d)\/(M?\d\d)$/
   if t
-    res.t = if t[1].charAt(0) is 'M' then -parseInt(t[1].substring(1)) else parseInt(t[1])
-    res.d = if t[2].charAt(0) is 'M' then -parseInt(t[2].substring(1)) else parseInt(t[2])
+    res.t = if t[1].charAt(0) is 'M' then -int(t[1].substring(1)) else int(t[1])
+    res.d = if t[2].charAt(0) is 'M' then -int(t[2].substring(1)) else int(t[2])
     return
 
   if tok is "RMK"
     return "RMK"
+
+  t = tok.match /^QFE(\d\d\d)\/(\d\d\d\d)$/
+  if t
+    res.p = int(t[2])
+    return
 
   res.unk.push tok
   return

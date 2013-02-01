@@ -13,4 +13,18 @@
     return console.log(decode(body));
   });
 
+  request.get({
+    url: "http://weather.noaa.gov/pub/data/observations/metar/stations/UIBB.TXT"
+  }, function(err, resp, body) {
+    console.log(body);
+    return console.log(decode(body));
+  });
+
+  request.get({
+    url: "http://weather.noaa.gov/pub/data/observations/metar/stations/UIUU.TXT"
+  }, function(err, resp, body) {
+    console.log(body);
+    return console.log(decode(body));
+  });
+
 }).call(this);
