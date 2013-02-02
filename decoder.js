@@ -85,8 +85,8 @@
   decode_std = function(tok, res) {
     var t, vv, _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6;
     if (tok === "CAVOK") {
-      res.c = [0];
-      res.v = 9999;
+      res.cl = [0];
+      res.vis = 9999;
       return;
     }
     if (tok === "NOSIG") {
@@ -148,7 +148,7 @@
     }
     t = tok.match(/^(SKC|CLR|NSC|NCD|FEW|SCT|BKN|OVC)(\d{3})(CB|CI|CU|TCU)?$/);
     if (t) {
-      res.c = [
+      res.cl = [
         (function() {
           switch (t[1]) {
             case "SKC":
@@ -167,9 +167,9 @@
           }
         })()
       ];
-      res.c.push(30 * int(t[2]));
+      res.cl.push(30 * int(t[2]));
       if (t[3]) {
-        res.c.push(t[3]);
+        res.cl.push(t[3]);
       }
       return;
     }

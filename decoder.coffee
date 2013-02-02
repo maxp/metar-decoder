@@ -64,8 +64,8 @@ x.decode = (s) ->
 decode_std = (tok, res) ->
 
   if tok is "CAVOK"
-    res.c = [0]
-    res.v = 9999
+    res.cl = [0]
+    res.vis = 9999
     return
 
   if tok is "NOSIG"
@@ -131,15 +131,15 @@ decode_std = (tok, res) ->
 
   t = tok.match /^(SKC|CLR|NSC|NCD|FEW|SCT|BKN|OVC)(\d{3})(CB|CI|CU|TCU)?$/
   if t
-    res.c = [ switch t[1]
+    res.cl = [ switch t[1]
       when "SKC", "CLR", "NSC", "NCD" then 0
       when "FEW" then 2
       when "SCT" then 4
       when "BKN" then 7
       when "OVC" then 8
     ]
-    res.c.push 30*int(t[2])
-    res.c.push t[3] if t[3]
+    res.cl.push 30*int(t[2])
+    res.cl.push t[3] if t[3]
     return
 
   t = tok.match ///^ (\-|\+|VC)?
