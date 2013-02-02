@@ -78,14 +78,12 @@ decode_std = (tok, res) ->
 
   if tok is "TEMPO" or tok is "BECMG"
     # temporary (2 hrs) data or trend
-    res.flg ?= []
-    res.flg.push tok
+    (res.flg ?= []).push tok
     return
 
   if tok is "SNOCLO"
     # aeroport closed
-    res.flg ?= []
-    res.flg.push tok
+    (res.flg ?= []).push tok
     return
 
   if tok is "RMK"
@@ -195,8 +193,7 @@ decode_rmk = (tok, res) ->
 
   t = tok.match ///^ (\d\d) (([\d/]{4}) | (CLRD)) ([\d/]{2}) $///
   if t
-    res.rwy ?= {}
-    res.rwy[t[1]] = if t[2] isnt "////" then {dep:t[2], fc:t[5]} else {fc:t[5]}
+    (res.rwy ?= {})[t[1]] = if t[2] isnt "////" then {dep:t[2],fc:t[5]} else {fc:t[5]}
     return
 
   # RR D C DD FC

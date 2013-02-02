@@ -96,17 +96,11 @@
       return;
     }
     if (tok === "TEMPO" || tok === "BECMG") {
-      if ((_ref = res.flg) == null) {
-        res.flg = [];
-      }
-      res.flg.push(tok);
+      ((_ref = res.flg) != null ? _ref : res.flg = []).push(tok);
       return;
     }
     if (tok === "SNOCLO") {
-      if ((_ref1 = res.flg) == null) {
-        res.flg = [];
-      }
-      res.flg.push(tok);
+      ((_ref1 = res.flg) != null ? _ref1 : res.flg = []).push(tok);
       return;
     }
     if (tok === "RMK") {
@@ -205,10 +199,7 @@
     }
     t = tok.match(/^(\d\d)(([\d\/]{4})|(CLRD))([\d\/]{2})$/);
     if (t) {
-      if ((_ref = res.rwy) == null) {
-        res.rwy = {};
-      }
-      res.rwy[t[1]] = t[2] !== "////" ? {
+      ((_ref = res.rwy) != null ? _ref : res.rwy = {})[t[1]] = t[2] !== "////" ? {
         dep: t[2],
         fc: t[5]
       } : {

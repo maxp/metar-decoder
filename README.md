@@ -2,7 +2,7 @@ metar-decoder
 =============
 
 [github.com/maxp/metar-decoder](http://github.com/maxp/metar-decoder) -
-CoffeeScript routine to decode METAR weather data.
+CoffeeScript routine to decode METAR data.
 
 
 Function decode(metar_string) parses METAR data
