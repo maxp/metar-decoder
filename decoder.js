@@ -83,7 +83,7 @@
   };
 
   decode_std = function(tok, res) {
-    var t, _ref, _ref1, _ref2, _ref3, _ref4;
+    var t, vv, _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6;
     if (tok === "CAVOK") {
       res.c = [0];
       res.v = 9999;
@@ -92,7 +92,21 @@
     if (tok === "NOSIG") {
       return;
     }
-    if (tok === "TEMPO") {
+    if (tok === "NSW") {
+      return;
+    }
+    if (tok === "TEMPO" || tok === "BECMG") {
+      if ((_ref = res.flg) == null) {
+        res.flg = [];
+      }
+      res.flg.push(tok);
+      return;
+    }
+    if (tok === "SNOCLO") {
+      if ((_ref1 = res.flg) == null) {
+        res.flg = [];
+      }
+      res.flg.push(tok);
       return;
     }
     if (tok === "RMK") {
@@ -124,10 +138,21 @@
     }
     t = tok.match(/^(\d\d\d\d)(N|NE|E|SE|S|SW|W|NW)?$/);
     if (t) {
-      res.v = int(t[1]);
+      res.vis = int(t[1]);
+      if (t[2]) {
+        res.vid = t[2];
+      }
       return;
     }
-    t = tok.match(/^(SKC|CLR|NSC|FEW|SCT|BKN|OVC)(\d{3})(CB|CI|CU|TCU)?$/);
+    t = tok.match(/^VV(\d{3}|\/{3})$/);
+    if (t) {
+      vv = int(t[1]);
+      if (vv) {
+        res.vv = 30 * vv;
+      }
+      return;
+    }
+    t = tok.match(/^(SKC|CLR|NSC|NCD|FEW|SCT|BKN|OVC)(\d{3})(CB|CI|CU|TCU)?$/);
     if (t) {
       res.c = [
         (function() {
@@ -135,6 +160,7 @@
             case "SKC":
             case "CLR":
             case "NSC":
+            case "NCD":
               return 0;
             case "FEW":
               return 2;
@@ -155,24 +181,75 @@
     }
     t = tok.match(/^(\-|\+|VC)?(BC|BL|DR|FZ|MI|PR|SH|TS)?(DZ|RA|SN|SG|IC|PL|GR|GS|UP)?(BR|FG|FU|VA|DU|SA|HZ|PY)?(PO|SQ|FC|SS|DS)?$/);
     if (t) {
-      res.prw = [(_ref = t[1]) != null ? _ref : '', (_ref1 = t[2]) != null ? _ref1 : '', (_ref2 = t[3]) != null ? _ref2 : '', (_ref3 = t[4]) != null ? _ref3 : '', (_ref4 = t[5]) != null ? _ref4 : ''];
+      res.prw = [(_ref2 = t[1]) != null ? _ref2 : '', (_ref3 = t[2]) != null ? _ref3 : '', (_ref4 = t[3]) != null ? _ref4 : '', (_ref5 = t[4]) != null ? _ref5 : '', (_ref6 = t[5]) != null ? _ref6 : ''];
       return;
     }
     res.unk.push(tok);
   };
 
   decode_rmk = function(tok, res) {
-    var t;
-    t = tok.match(/^QFE(\d\d\d)\/(\d\d\d\d)$/);
+    var t, _ref;
+    t = tok.match(/^QFE(\d\d\d(\.\d+)?)(\/\d\d\d\d)?$/);
     if (t) {
-      res.p = int(t[2]);
+      if (t[3]) {
+        res.p = int(t[3].substring(1));
+      } else {
+        res.p = Math.round(parseFloat(t[1]) * 1.3332239);
+      }
       return;
     }
-    t = tok.match(/^(\d{8}$)/);
+    t = tok.match(/^(\d\d)(([\d\/]{4})|(CLRD))([\d\/]{2})$/);
     if (t) {
+      if ((_ref = res.rwy) == null) {
+        res.rwy = {};
+      }
+      res.rwy[t[1]] = t[2] !== "////" ? {
+        dep: t[2],
+        fc: t[5]
+      } : {
+        fc: t[5]
+      };
       return;
     }
     res.unk.push(tok);
+  };
+
+  x.PRW_RUS = {
+    VCFG: "туман на расстоянии",
+    FZFG: "переохлаждённый туман",
+    MIFG: "туман поземный",
+    PRFG: "туман просвечивающий",
+    FG: "туман",
+    BR: "дымка",
+    HZ: "мгла",
+    FU: "дым",
+    DS: "пыльная буря",
+    SS: "песчаная буря",
+    DRSA: "песчаный позёмок",
+    DRDU: "пыльный позёмок",
+    DU: "пыль в воздухе (пыльная мгла)",
+    DRSN: "снежный позёмок",
+    BLSN: "метель",
+    RASN: "дождь со снегом",
+    SNRA: "снег с дождём",
+    SHSN: "ливневой снег",
+    SHRA: "ливневой дождь",
+    DZ: "морось",
+    SG: "снежные зёрна",
+    RA: "дождь",
+    SN: "снег",
+    IC: "ледяные иглы",
+    PL: "ледяной дождь (гололёд)",
+    GS: "ледяная крупа (гололёд)",
+    FZRA: "переохлаждённый дождь (гололёд)",
+    FZDZ: "переохлаждённая морось (гололёд)",
+    TSRA: "гроза с дождём",
+    TSGR: "гроза с градом",
+    TSGS: "гроза, слабый град",
+    TSSN: "гроза со снегом",
+    TS: "гроза без осадков",
+    SQ: "шквал",
+    GR: "град"
   };
 
 }).call(this);

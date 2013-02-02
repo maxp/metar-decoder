@@ -71,11 +71,23 @@ decode_std = (tok, res) ->
     return
 
   if tok is "NOSIG"
-    # do nothing
+    # no significant changes
     return
 
-  if tok is "TEMPO"
-    # do nothing
+  if tok is "NSW"
+    # no significant weather
+    return
+
+  if tok is "TEMPO" or tok is "BECMG"
+    # temporary (2 hrs) data or trend
+    res.flg ?= []
+    res.flg.push tok
+    return
+
+  if tok is "SNOCLO"
+    # aeroport closed
+    res.flg ?= []
+    res.flg.push tok
     return
 
   if tok is "RMK"
@@ -107,21 +119,29 @@ decode_std = (tok, res) ->
     return
   #
 
+  # visibility
   t = tok.match /^(\d\d\d\d)(N|NE|E|SE|S|SW|W|NW)?$/
   if t
-    res.v = int(t[1])
-    # t[2] - direction not used
+    res.vis = int(t[1])
+    res.vid = t[2] if t[2]
     return
 
-  t = tok.match /^(SKC|CLR|NSC|FEW|SCT|BKN|OVC)(\d{3})(CB|CI|CU|TCU)?$/
+  # vertical visibility
+  t = tok.match /^VV(\d{3}|\/{3})$/
+  if t
+    vv = int(t[1])
+    res.vv = 30*vv if vv
+    return
+
+  t = tok.match /^(SKC|CLR|NSC|NCD|FEW|SCT|BKN|OVC)(\d{3})(CB|CI|CU|TCU)?$/
   if t
     res.c = [ switch t[1]
-                when "SKC", "CLR", "NSC" then 0
-                when "FEW" then 2
-                when "SCT" then 4
-                when "BKN" then 7
-                when "OVC" then 8
-            ]
+      when "SKC", "CLR", "NSC", "NCD" then 0
+      when "FEW" then 2
+      when "SCT" then 4
+      when "BKN" then 7
+      when "OVC" then 8
+    ]
     res.c.push 30*int(t[2])
     res.c.push t[3] if t[3]
     return
@@ -141,281 +161,99 @@ decode_std = (tok, res) ->
   # statute-miles visibility - /^((\d{1,2})|(\d\/\d))SM$/;
   # QNH inHg - /^A(\d{4})$/
   # runway visual range - /^R(\d\d)(R|C|L)?\/(M|P)?(\d{4})(V\d{4})?(U|D|N)?$/
+  #
+  # wind-shear: (WS|ALL|RWY) /^RWY(\d{2})(L|C|R)?$/;
+  # runway number, left/right/center
+  #
+  # from:  /^FM(\d{2})(\d{2})Z?$/
+  # until: /^TL(\d{2})(\d{2})Z?$/
+  # at:    /^AT(\d{2})(\d{2})Z?$/
+  #
+  # sea: /^W(M?(\d\d))\/S(\d)/
+  #   surface temperature (celsius)
+  #   weaves height (m):
+  #     0 - 0, 1 - 0.1, 2 - 0.5, 3 - 1.25, 4 - 2.5,
+  #     5 - 4, 6 - 6, 7 - 9, 8 - 14, 9 - huge
 
   res.unk.push tok
   return
 #-
 
 decode_rmk = (tok, res) ->
-  t = tok.match /^QFE(\d\d\d)\/(\d\d\d\d)$/
+  t = tok.match /^QFE(\d\d\d(\.\d+)?)(\/\d\d\d\d)?$/
   if t
-    res.p = int(t[2])
+    if t[3]
+      res.p = int(t[3].substring(1))
+    else
+      res.p = Math.round(parseFloat(t[1])*1.3332239)
     return
 
-  t = tok.match /^(\d{8}$)/
+  t = tok.match ///^ (\d\d) (([\d/]{4}) | (CLRD)) ([\d/]{2}) $///
   if t
-    # runway state not handled
+    res.rwy ?= {}
+    res.rwy[t[1]] = if t[2] isnt "////" then {dep:t[2], fc:t[5]} else {fc:t[5]}
     return
+
+  # RR D C DD FC
+  # runway num [0..49] - left, [50..87] - right, 88 - all, 99 - repeated
+  # CLRD - clear, "/" or "//" means 'not reported'
+  # deposit:
+  #   0 - clear, 1 - damp, 2 - wet, 3 - frost, 4 - dry snow, 5 - wet now,
+  #   6 - slush, 7 - ice, 8 - rolled snow, 9 - frozen ruts
+  # contamination:
+  #   1 - up to 10%, 2 - 25%, 5 - 50%, 9 - 100%
+  # depth of deposit:
+  #   [0..90] - depth in mm,
+  #   92 - 10cm, 93 - 15cm, 94 - 20cm, 95 - 25cm, 96 - 30cm, 97 - 35cm, 98 - 40cm or more,
+  #   99 - non operational
+  # friction coefficient:
+  #   [0..90] - 0.xx,
+  #   91 - poor, 92 - medim/poor, 93 - medium, 94 - medium/good, 95 - good
+  #   99 - unreliable
 
   res.unk.push tok
   return
 #-
 
-#    // Check if token is a present weather code - The regular expression is a bit
-#    // long, because several precipitation types can be joined in a token, and I
-#    // don't see a better way to get all the codes.
-#    var reWX =
-#    if(reWX.test(token))
-#    {
-#        add_output("Weather............: ");
-#        var myArray = reWX.exec(token);
-#        for(var i=1;i<myArray.length; i++)
-#        {
-#            if(myArray[i] == "-") add_output("light ");
-#            if(myArray[i] == "+") add_output("heavy ");
-#            if(myArray[i] == "VC") add_output("in the vicinity ");
-#            if(myArray[i] == "MI") add_output("shallow ");
-#            if(myArray[i] == "BC") add_output("patches of ");
-#            if(myArray[i] == "SH") add_output("shower(s) of ");
-#            if(myArray[i] == "TS") add_output("thunderstorm ");
-#            if(myArray[i] == "FZ") add_output("freezing ");
-#            if(myArray[i] == "PR") add_output("partial ");
-#            if(myArray[i] == "DZ") add_output("drizzle ");
-#            if(myArray[i] == "RA") add_output("rain ");
-#            if(myArray[i] == "SN") add_output("snow ");
-#            if(myArray[i] == "SG") add_output("snow grains ");
-#            if(myArray[i] == "IC") add_output("ice crystals ");
-#            if(myArray[i] == "PL") add_output("ice pellets ");
-#            if(myArray[i] == "GR") add_output("hail ");
-#            if(myArray[i] == "GS") add_output("small hail and/or snow pellets ");
-#            if(myArray[i] == "BR") add_output("mist ");
-#            if(myArray[i] == "FG") add_output("fog ");
-#            if(myArray[i] == "FU") add_output("smoke ");
-#            if(myArray[i] == "VA") add_output("volcanic ash ");
-#            if(myArray[i] == "DU") add_output("widespread dust ");
-#            if(myArray[i] == "SA") add_output("sand ");
-#            if(myArray[i] == "HZ") add_output("haze ");
-#            if(myArray[i] == "PO") add_output("dust/sand whirls (dust devils)");
-#            if(myArray[i] == "SQ") add_output("squall ");
-#            if(myArray[i] == "FC") add_output("funnel cloud(s) (tornado or waterspout) ");
-#            if(myArray[i] == "SS") add_output("sandstorm ");
-#            if(myArray[i] == "DS") add_output("duststorm ");
-#            if(myArray[i] == "DR") add_output("low drifting ");
-#            if(myArray[i] == "BL") add_output("blowing ");
-#        }
-#        add_output("\n");  return;
-#    }
 
+# present weather codes (more commonly used)
 
-#    // Check if token is "vertical visibility" indication
-#    var reVV = /^VV(\d{3}|\/{3})$/;
-#    if(reVV.test(token))
-#    {
-#        // VVddd -- ddd is vertical distance, or /// if unspecified
-#        var myArray = reVV.exec(token);
-#        add_output("Vertical visibility");
-#        if(myArray[1] == "///")
-#          add_output(" has indefinite ceiling\n");
-#        else
-#          add_output(": " + (100*parseInt(myArray[1],10)) + " feet\n");
-#
-#        return;
-#    }
-#
-#
-#    // Check if token is cloud indication
-#    var reCloud = /^(FEW|SCT|BKN|OVC)(\d{3})(CB|TCU)?$/;
-#    if(reCloud.test(token))
-#    {
-#        // Clouds: aaadddkk -- aaa indicates amount of sky covered, ddd distance over
-#        //                     aerodrome level, and kk the type of cloud.
-#        var myArray = reCloud.exec(token);
-#        add_output("Cloud coverage.....: ");
-#        if(myArray[1] == "FEW") add_output("few (1 to 2 oktas)");
-#        else if(myArray[1] == "SCT") add_output("scattered (3 to 4 oktas)");
-#        else if(myArray[1] == "BKN") add_output("broken (5 to 7 oktas)");
-#        else if(myArray[1] == "OVC") add_output("overcast (8 oktas)");
-#
-#        add_output(" at " + (100*parseInt(myArray[2],10)) + " feet above aerodrome level");
-#        if (myArray[3] == "CB") add_output(" cumulonimbus");
-#        else if(myArray[3] == "TCU") add_output(" towering cumulus");
-#
-#        add_output("\n"); return;
-#    }
-#
-#
-#    // Check if token is part of a wind-shear indication
-#    var reRWY = /^RWY(\d{2})(L|C|R)?$/;
-#    if(token=="WS")       { add_output("there is wind-shear in "); return; }
-#    else if(token=="ALL") { add_output("all "); return; }
-#    else if(token=="RWY") { add_output("runways\n"); return; }
-#    else if (reRWY.test(token))
-#    {
-#        var myArray = reRWY.exec(token);
-#        add_output("runway "+myArray[1]);
-#        if(myArray[2]=="L")      add_output(" Left");
-#        else if(myArray[2]=="C") add_output(" Central");
-#        else if(myArray[2]=="R") add_output(" Right");
-#        add_output("\n");
-#        return;
-#    }
-#
-#
-#    // Check if token is no-significant-weather indication
-#    if(token=="NSW")
-#    {
-#        add_output("no significant weather\n");
-#        return;
-#    }
-#
-#
-#    // Check if token is no-significant-clouds indication
-#    if(token=="NSC")
-#    {
-#        add_output("Clouds.............: no significant clouds are observed below 5000 feet or below the minimum sector altitude (whichever is higher)\n");
-#        return;
-#    }
-#
-#
-#// Check if token is part of trend indication
-#    if(token=="BECMG")
-#    {
-#        add_output("Next 2hrs gradually:\n");
-#        return;
-#    }
-#    if(token=="TEMPO")
-#    {
-#        add_output("Next 2hrs temporary:\n");
-#        return;
-#    }
-#    var reFM = /^FM(\d{2})(\d{2})Z?$/;
-#    if(reFM.test(token))
-#    {
-#        var myArray = reFM.exec(token);
-#        add_output("From "+myArray[1]+":"+myArray[2]+" UTC.....:\n");
-#        return;
-#    }
-#    var reTL = /^TL(\d{2})(\d{2})Z?$/;
-#    if(reTL.test(token))
-#    {
-#        var myArray = reTL.exec(token);
-#        add_output("Until "+myArray[1]+":"+myArray[2]+" UTC....:\n");
-#        return;
-#    }
-#    var reAT = /^AT(\d{2})(\d{2})Z?$/;
-#    if(reAT.test(token))
-#    {
-#        var myArray = reAT.exec(token);
-#        add_output("At "+myArray[1]+":"+myArray[2]+" UTC.......:\n");
-#        return;
-#    }
-#
-#
-#
-#    // Check if item is runway state group
-#    var reRSG = /^(\d\d)(\d|C|\/)(\d|L|\/)(\d\d|RD|\/)(\d\d)$/;
-#    if(reRSG.test(token))
-#    {
-#        var myArray = reRSG.exec(token);
-#        add_output("Runway state.......:");
-#
-#        // Runway designator (first 2 digits)
-#        var r = parseInt(myArray[1],10);
-#        if(r < 50) add_output(" Runway " + myArray[1] + " (or "+myArray[1]+" Left): ");
-#        else if(r < 88) add_output(" Runway " + (r-50) + " Right: ");
-#        else if(r == 88) add_output(" All runways: ");
-#
-#        // Check if "CLRD" occurs in digits 3-6
-#        if(token.substr(2,4)=="CLRD") add_output("clear, ");
-#        else
-#        {
-#          // Runway deposits (third digit)
-#          if(myArray[2]=="0") add_output("clear and dry, ");
-#          else if(myArray[2]=="1") add_output("damp, ");
-#          else if(myArray[2]=="2") add_output("wet or water patches, ");
-#          else if(myArray[2]=="3") add_output("rime or frost covered, ");
-#          else if(myArray[2]=="4") add_output("dry snow, ");
-#          else if(myArray[2]=="5") add_output("wet snow, ");
-#          else if(myArray[2]=="6") add_output("slush, ");
-#          else if(myArray[2]=="7") add_output("ice, ");
-#          else if(myArray[2]=="8") add_output("compacted or rolled snow, ");
-#          else if(myArray[2]=="9") add_output("frozen ruts or ridges, ");
-#          else if(myArray[2]=="/") add_output("deposit not reported, ");
-#
-#          // Extent of runway contamination (fourth digit)
-#          if(myArray[3]=="1") add_output("contamination 10% or less, ");
-#          else if(myArray[3]=="2") add_output("contamination 11% to 25%, ");
-#          else if(myArray[3]=="5") add_output("contamination 26% to 50%, ");
-#          else if(myArray[3]=="9") add_output("contamination 51% to 100%, ");
-#          else if(myArray[3]=="/") add_output("contamination not reported, ");
-#
-#          // Depth of deposit (fifth and sixth digits)
-#          if(myArray[4]=="//") add_output("depth of deposit not reported, ");
-#          else
-#          {
-#              var d = parseInt(myArray[4],10);
-#              if(d == 0) add_output("deposit less than 1 mm deep, ");
-#              else if ((d >  0) && (d < 91)) add_output("deposit is "+d+" mm deep, ");
-#              else if (d == 92) add_output("deposit is 10 cm deep, ");
-#              else if (d == 93) add_output("deposit is 15 cm deep, ");
-#              else if (d == 94) add_output("deposit is 20 cm deep, ");
-#              else if (d == 95) add_output("deposit is 25 cm deep, ");
-#              else if (d == 96) add_output("deposit is 30 cm deep, ");
-#              else if (d == 97) add_output("deposit is 35 cm deep, ");
-#              else if (d == 98) add_output("deposit is 40 cm or more deep, ");
-#              else if (d == 99) add_output("runway(s) is/are non-operational due to snow, slush, ice, large drifts or runway clearance, but depth of deposit is not reported, ");
-#          }
-#        }
-#
-#        // Friction coefficient or braking action (seventh and eighth digit)
-#        if(myArray[5]=="//") add_output("braking action not reported");
-#        else
-#        {
-#            var b = parseInt(myArray[5],10);
-#            if(b<91) add_output("friction coefficient 0."+myArray[5]);
-#            else
-#            {
-#                 if(b == 91) add_output("braking action is poor");
-#                 else if(b == 92) add_output("braking action is medium/poor");
-#                 else if(b == 93) add_output("braking action is medium");
-#                 else if(b == 94) add_output("braking action is medium/good");
-#                 else if(b == 95) add_output("braking action is good");
-#                 else if(b == 99) add_output("braking action figures are unreliable");
-#            }
-#        }
-#        add_output("\n"); return;
-#    }
-#
-#    if(token=="SNOCLO")
-#    {
-#        add_output("Aerodrome is closed due to snow on runways\n");
-#        return;
-#    }
-#
-#    // Check if item is sea status indication
-#    reSea = /^W(M)?(\d\d)\/S(\d)/;
-#    if(reSea.test(token))
-#    {
-#        var myArray = reSea.exec(token);
-#        add_output("Sea surface temperature: ");
-#        if(myArray[1]=="M")
-#            add_output("-");
-#        add_output(parseInt(myArray[2],10) + " degrees Celsius\n");
-#
-#        add_output("Sea waves have height: ");
-#        if(myArray[3]=="0") add_output("0 m (calm)\n");
-#        else if(myArray[3]=="1") add_output("0-0,1 m\n");
-#        else if(myArray[3]=="2") add_output("0,1-0,5 m\n");
-#        else if(myArray[3]=="3") add_output("0,5-1,25 m\n");
-#        else if(myArray[3]=="4") add_output("1,25-2,5 m\n");
-#        else if(myArray[3]=="5") add_output("2,5-4 m\n");
-#        else if(myArray[3]=="6") add_output("4-6 m\n");
-#        else if(myArray[3]=="7") add_output("6-9 m\n");
-#        else if(myArray[3]=="8") add_output("9-14 m\n");
-#        else if(myArray[3]=="9") add_output("more than 14 m (huge!)\n");
-#        return;
-#    }
-#}
-#
+x.PRW_RUS =
+  VCFG: "туман на расстоянии"
+  FZFG: "переохлаждённый туман"
+  MIFG: "туман поземный"
+  PRFG: "туман просвечивающий"
+  FG:   "туман"
+  BR:   "дымка"
+  HZ:   "мгла"
+  FU:   "дым"
+  DS:   "пыльная буря"
+  SS:   "песчаная буря"
+  DRSA: "песчаный позёмок"
+  DRDU: "пыльный позёмок"
+  DU:   "пыль в воздухе (пыльная мгла)"
+  DRSN: "снежный позёмок"
+  BLSN: "метель"
+  RASN: "дождь со снегом"
+  SNRA: "снег с дождём"
+  SHSN: "ливневой снег"
+  SHRA: "ливневой дождь"
+  DZ:   "морось"
+  SG:   "снежные зёрна"
+  RA:   "дождь"
+  SN:   "снег"
+  IC:   "ледяные иглы"
+  PL:   "ледяной дождь (гололёд)"
+  GS:   "ледяная крупа (гололёд)"
+  FZRA: "переохлаждённый дождь (гололёд)"
+  FZDZ: "переохлаждённая морось (гололёд)"
+  TSRA: "гроза с дождём"
+  TSGR: "гроза с градом"
+  TSGS: "гроза, слабый град"
+  TSSN: "гроза со снегом"
+  TS:   "гроза без осадков"
+  SQ:   "шквал"
+  GR:   "град"
+#-
 
 #.
