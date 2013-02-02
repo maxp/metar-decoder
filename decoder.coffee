@@ -6,10 +6,6 @@ x = exports ? this
 
 moment = require 'moment'
 
-#_ = require 'underscore'
-#_.str = require 'underscore.string'
-#_.mixin _.str.exports()
-
 
 x.decode = (s) ->
 
@@ -28,22 +24,21 @@ x.decode = (s) ->
   ct += 1 if tokens[ct] is "METAR"
   ct += 1 if tokens[ct] is "SPECI"
 
-  console.log ct, tokens
-
   icao = tokens[ct]
   if icao.length isnt 4
     return {err: "bad icao"}
   else
     ct += 1
 
-  res = icao: icao
+  res = {icao: icao}
 
   t = tokens[ct].match /^(\d\d)(\d\d)(\d\d)Z$/
   if not t
     res.err = "invalid time"
     return res
 
-  res.ts = moment.utc().date(t[1]).hours(t[2]).minutes(t[3]).toDate()
+  res.ts = moment.utc().date(t[1]).hours(t[2]).minutes(t[3])\
+                    .seconds(0).milliseconds(0).toDate()
   ct += 1
 
   ct += 1 if tokens[ct] is "AUTO"
@@ -51,10 +46,15 @@ x.decode = (s) ->
 
   res.unk = []
   while ct < tokens.length
-    decode_tok(tokens[ct], res)
-    ct += 1
+    if decode_std(tokens[ct], res) is "RMK"
+      ct += 1
+      break
+    else
+      ct += 1
 
-  # TODO: process RMK
+  while ct < tokens.length
+    decode_rmk(tokens[ct], res)
+    ct += 1
 
   delete res.unk if res.unk.length is 0
   return res
@@ -62,7 +62,38 @@ x.decode = (s) ->
 
 int = (s) -> parseInt(s, 10)
 
-decode_tok = (tok, res) ->
+
+decode_std = (tok, res) ->
+
+  if tok is "CAVOK"
+    res.c = [0]
+    res.v = 9999
+    return
+
+  if tok is "NOSIG"
+    # do nothing
+    return
+
+  if tok is "TEMPO"
+    # do nothing
+    return
+
+  if tok is "RMK"
+    # continue to remarks
+    return "RMK"
+
+  # Q barometer hPa
+  t = tok.match /^Q(\d{3,4})$/
+  if t
+    res.q = int(t[1])
+    return
+
+  # temperature / dew point
+  t = tok.match /^(M?\d\d)\/(M?\d\d)$/
+  if t
+    res.t = if t[1].charAt(0) is 'M' then -int(t[1].substring(1)) else int(t[1])
+    res.d = if t[2].charAt(0) is 'M' then -int(t[2].substring(1)) else int(t[2])
+    return
 
   # wind
   t = tok.match /^(\d{3}|VRB)(\d{2,3})(G\d{2,3})?(KT|MPS|KMH)$/
@@ -76,171 +107,64 @@ decode_tok = (tok, res) ->
     return
   #
 
-  # Q barometer hPa
-  t = tok.match /^Q(\d{3,4})$/
-  if t
-    res.q = int(t[1])
-    return
-
-  t = tok.match /^(\d\d\d\d)$/
+  t = tok.match /^(\d\d\d\d)(N|NE|E|SE|S|SW|W|NW)?$/
   if t
     res.v = int(t[1])
+    # t[2] - direction not used
     return
 
-  if tok is "CAVOK" or tok is "SKC"
-    res.c = 0
-    res.v = 9999
-    return
-
-  # ? OVC
-  # ? clouds
-
-  if tok is "NOSIG"
-    # do nothing ?
-    return
-
-  t = tok.match /^(M?\d\d)\/(M?\d\d)$/
+  t = tok.match /^(SKC|CLR|NSC|FEW|SCT|BKN|OVC)(\d{3})(CB|CI|CU|TCU)?$/
   if t
-    res.t = if t[1].charAt(0) is 'M' then -int(t[1].substring(1)) else int(t[1])
-    res.d = if t[2].charAt(0) is 'M' then -int(t[2].substring(1)) else int(t[2])
+    res.c = [ switch t[1]
+                when "SKC", "CLR", "NSC" then 0
+                when "FEW" then 2
+                when "SCT" then 4
+                when "BKN" then 7
+                when "OVC" then 8
+            ]
+    res.c.push 30*int(t[2])
+    res.c.push t[3] if t[3]
     return
 
-  if tok is "RMK"
-    return "RMK"
+  t = tok.match ///^ (\-|\+|VC)?
+                  (BC|BL|DR|FZ|MI|PR|SH|TS)?
+                  (DZ|RA|SN|SG|IC|PL|GR|GS|UP)?
+                  (BR|FG|FU|VA|DU|SA|HZ|PY)?
+                  (PO|SQ|FC|SS|DS)? $///
+  if t
+    res.prw = [t[1] ? '', t[2] ? '', t[3] ? '', t[4] ? '', t[5] ? '']
+    return
 
+  # not implemented:
+  #
+  # variable wind direction - /^(\d{3})V(\d{3})$/;
+  # statute-miles visibility - /^((\d{1,2})|(\d\/\d))SM$/;
+  # QNH inHg - /^A(\d{4})$/
+  # runway visual range - /^R(\d\d)(R|C|L)?\/(M|P)?(\d{4})(V\d{4})?(U|D|N)?$/
+
+  res.unk.push tok
+  return
+#-
+
+decode_rmk = (tok, res) ->
   t = tok.match /^QFE(\d\d\d)\/(\d\d\d\d)$/
   if t
     res.p = int(t[2])
+    return
+
+  t = tok.match /^(\d{8}$)/
+  if t
+    # runway state not handled
     return
 
   res.unk.push tok
   return
 #-
 
-
-#    // Check if token is "variable wind direction"
-#    var reVariableWind = /^(\d{3})V(\d{3})$/;
-#    if(reVariableWind.test(token))
-#    {
-#        // Variable wind direction: aaaVbbb, aaa and bbb are directions in clockwise order
-#        add_output("Wind direction.....: variable between "+token.substr(0,3)+" and "+token.substr(4,3)+" degrees \n");
-#        return;
-#    }
-#
-#
-#    // Check if token is visibility
-#    var reVis = /^(\d{4})(N|S)?(E|W)?$/;
-#    if(reVis.test(token))
-#    {
-#        var myArray = reVis.exec(token);
-#        add_output("Visibility.........: ");
-#        if(myArray[1]=="9999")
-#          add_output("10 km or more");
-#        else if (myArray[1]=="0000")
-#          add_output("less than 50 m");
-#        else
-#          add_output(parseInt(myArray[1],10) + " m");
-#
-#	var dir = "";
-#        if(typeof myArray[2] != "undefined")
-#        {
-#          dir=dir + myArray[2];
-#        }
-#        if(typeof myArray[3] != "undefined")
-#        {
-#          dir=dir + myArray[3];
-#        }
-#        if(dir != "")
-#        {
-#          add_output(" direction ");
-#          if(dir=="N") add_output("North");
-#          else if(dir=="NE") add_output("North East");
-#          else if(dir=="E") add_output("East");
-#          else if(dir=="SE") add_output("South East");
-#          else if(dir=="S") add_output("South");
-#          else if(dir=="SW") add_output("South West");
-#          else if(dir=="W") add_output("West");
-#          else if(dir=="NW") add_output("North West");
-#        }
-#        add_output("\n"); return;
-#    }
-#
-#    // Check if token is Statute-Miles visibility
-#     var reVisUS = /(SM)$/;
-#     if(reVisUS.test(token))
-#     {
-#      add_output("Visibility: ");
-#      var myVisArray = token.split("S");
-#      add_output(myVisArray[0]);
-#      add_output(" Statute Miles\n");
-#    }
-#
-#
-#    // Check if token is QNH indication in mmHg: Annnn
-#    var reINHg = /A\d{4}/;
-#    if(reINHg.test(token))
-#    {
-#        add_output("QNH: ");
-#        add_output(token.substr(1,2) + "." + token.substr(3,4) + " inHg");
-#        add_output("\n");  return;
-#    }
-#
-#
-#    // Check if token is runway visual range (RVR) indication
-#    var reRVR = /^R(\d{2})(R|C|L)?\/(M|P)?(\d{4})(V\d{4})?(U|D|N)?$/;
-#    if(reRVR.test(token))
-#    {
-#        var myArray = reRVR.exec(token);
-#        add_output("Runway visibilty...: on runway ");
-#        add_output(myArray[1]);
-#        if(typeof myArray[2] != "undefined")
-#        {
-#          if(myArray[2]=="L") add_output(" Left");
-#          else if(myArray[2]=="R") add_output(" Right");
-#          else if(myArray[2]=="C") add_output(" Central");
-#        }
-#        add_output(", touchdown zone visual range is ");
-#        if(typeof myArray[5] != "undefined")
-#        {
-#                 // Variable range
-#            add_output("variable from a minimum of ");
-#            if(myArray[3]=="P") add_output("more than ");
-#            else if(myArray[3]=="M") add_output("less than ");
-#            add_output(myArray[4]);
-#            add_output(" meters");
-#            add_output(" until a maximum of "+myArray[5].substr(1,myArray[5].length)+" meters");
-#            if(myArray[5]=="P") add_output("more than ");
-#
-#
-#        }
-#        else
-#        {
-#          // Single value
-#          if( (typeof myArray[3] != "undefined") &&
-#              (typeof myArray[4] != "undefined")    )
-#          {
-#            if(myArray[3]=="P") add_output("more than ");
-#            else if(myArray[3]=="M") add_output("less than ");
-#            add_output(myArray[4]);
-#            add_output(" meters");
-#          }
-#
-#        }
-#        if( (myArray.length > 5) && (typeof myArray[6] != "undefined") )
-#        {
-#          if(myArray[6]=="U") add_output(", and increasing");
-#          else if(myArray[6]=="D") add_output(", and decreasing");
-#        }
-#        add_output("\n");
-#        return;
-#    }
-#
-
-#
 #    // Check if token is a present weather code - The regular expression is a bit
 #    // long, because several precipitation types can be joined in a token, and I
 #    // don't see a better way to get all the codes.
-#    var reWX = /^(\-|\+|)?(VC)?(MI|BC|DR|BL|SH|TS|FZ|PR)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(SH|TS|DZ|RA|SN|SG|IC|PL|GR|GS|BR|FG|FU|VA|DU|SA|HZ|PO|SQ|FC|SS|DS)$/;
+#    var reWX =
 #    if(reWX.test(token))
 #    {
 #        add_output("Weather............: ");
@@ -281,52 +205,6 @@ decode_tok = (tok, res) ->
 #        }
 #        add_output("\n");  return;
 #    }
-#
-#
-#    // Check if token is recent weather observation
-#    var reREWX = /^RE(\-|\+)?(VC)?(MI|BC|BL|DR|SH|TS|FZ|PR)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(DZ|RA|SN|SG|IC|PL|GR|GS)?(DZ|RA|SN|SG|IC|PL|GR|GS|BR|FG|FU|VA|DU|SA|HZ|PO|SQ|FC|SS|DS)?$/;
-#    if(reREWX.test(token))
-#    {
-#        add_output("Since the previous observation (but not at present), the following\nmeteorological phenomena were observed: ");
-#        var myArray = reREWX.exec(token);
-#        for(var i=1;i<myArray.length; i++)
-#        {
-#            if(myArray[i] == "-") add_output("light ");
-#            if(myArray[i] == "+") add_output("heavy ");
-#            if(myArray[i] == "VC") add_output("in the vicinity ");
-#            if(myArray[i] == "MI") add_output("shallow ");
-#            if(myArray[i] == "BC") add_output("patches of ");
-#            if(myArray[i] == "SH") add_output("shower(s) of ");
-#            if(myArray[i] == "TS") add_output("thunderstorm ");
-#            if(myArray[i] == "FZ") add_output("freezing ");
-#            if(myArray[i] == "PR") add_output("partial ");
-#            if(myArray[i] == "DZ") add_output("drizzle ");
-#            if(myArray[i] == "RA") add_output("rain ");
-#            if(myArray[i] == "SN") add_output("snow ");
-#            if(myArray[i] == "SG") add_output("snow grains ");
-#            if(myArray[i] == "IC") add_output("ice crystals ");
-#            if(myArray[i] == "PL") add_output("ice pellets ");
-#            if(myArray[i] == "GR") add_output("hail ");
-#            if(myArray[i] == "GS") add_output("small hail and/or snow pellets ");
-#            if(myArray[i] == "BR") add_output("mist ");
-#            if(myArray[i] == "FG") add_output("fog ");
-#            if(myArray[i] == "FU") add_output("smoke ");
-#            if(myArray[i] == "VA") add_output("volcanic ash ");
-#            if(myArray[i] == "DU") add_output("widespread dust ");
-#            if(myArray[i] == "SA") add_output("sand ");
-#            if(myArray[i] == "HZ") add_output("haze ");
-#            if(myArray[i] == "PO") add_output("dust/Sand whirls (dust devils) ");
-#            if(myArray[i] == "SQ") add_output("squall ");
-#            if(myArray[i] == "FC") add_output("funnel cloud(s) (tornado or waterspout) ");
-#            if(myArray[i] == "SS") add_output("sandstorm ");
-#            if(myArray[i] == "DS") add_output("duststorm ");
-#            if(myArray[i] == "DR") add_output("low drifting ");
-#            if(myArray[i] == "BL") add_output("blowing ");
-#
-#        }
-#        add_output("\n"); return;
-#    }
-#
 
 
 #    // Check if token is "vertical visibility" indication
