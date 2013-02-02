@@ -1,11 +1,12 @@
 #
-#   metar/taf decoder: github.com/maxp/metar-decoder
+#   metar decoder: github.com/maxp/metar-decoder
 #
 
 x = exports ? this
 
 moment = require 'moment'
 
+int = (s) -> parseInt(s, 10)
 
 x.decode = (s) ->
 
@@ -59,9 +60,6 @@ x.decode = (s) ->
   delete res.unk if res.unk.length is 0
   return res
 #-
-
-int = (s) -> parseInt(s, 10)
-
 
 decode_std = (tok, res) ->
 
@@ -180,6 +178,13 @@ decode_std = (tok, res) ->
 #-
 
 decode_rmk = (tok, res) ->
+
+  t = tok.match /^QBB(\d{3})$/
+  if t
+    # cloud base (m)
+    res.clb = int(t[1])
+    return
+
   t = tok.match /^QFE(\d\d\d(\.\d+)?)(\/\d\d\d\d)?$/
   if t
     if t[3]

@@ -6,6 +6,10 @@
 
   moment = require('moment');
 
+  int = function(s) {
+    return parseInt(s, 10);
+  };
+
   x.decode = function(s) {
     var ct, icao, res, t, tokens;
     s = s.replace(/\n/g, " ");
@@ -76,10 +80,6 @@
       delete res.unk;
     }
     return res;
-  };
-
-  int = function(s) {
-    return parseInt(s, 10);
   };
 
   decode_std = function(tok, res) {
@@ -189,6 +189,11 @@
 
   decode_rmk = function(tok, res) {
     var t, _ref;
+    t = tok.match(/^QBB(\d{3})$/);
+    if (t) {
+      res.clb = int(t[1]);
+      return;
+    }
     t = tok.match(/^QFE(\d\d\d(\.\d+)?)(\/\d\d\d\d)?$/);
     if (t) {
       if (t[3]) {

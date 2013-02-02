@@ -8,7 +8,7 @@
 
   decode = require('./decoder').decode;
 
-  APS = [["UIII", "Irkutsk"], ["UNBB", "Barnaul"], ["UIBB", "Bratsk"], ["UIUU", "Ulan-Ude"], ["ZMUB", "Ulan-Bator"]];
+  APS = [["UIII", "Irkutsk"], ["UNBB", "Barnaul"], ["UIBB", "Bratsk"], ["UIUU", "Ulan-Ude"], ["ZMUB", "Ulan-Bator"], ["UERR", "Mirniy"], ["UIAA", "Chita"], ["UEEE", "Yakutsk"], ["URMM", "Minvody"]];
 
   async.forEachSeries(APS, function(ap, next) {
     console.log(ap);

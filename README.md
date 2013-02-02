@@ -23,6 +23,8 @@ and returns following structure:
       clouds in octas (SKC/CLR/NSC - 0, FEW - 2, SCT - 4, BKN - 7, OVC - 8) :int
       vertical visibility (m) :int
       type: CU = cumulus, CB = cumulonumbus, CI = cirrus, TCU = towering cumulus
+      # ?not supported: SC - stratocumuls, AC - altocumulus
+    clb: cloud base (m) :int
     prw: [intencity, descriptor, precipitation, obscuration, other]
        present weather -
        http://www.ivao.aero/training/tutorials/metar/metar.htm
