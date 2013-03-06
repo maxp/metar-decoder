@@ -39,7 +39,7 @@ and returns following structure:
 Momentjs used for UTC date handling.
 
 
-Additional flags (not handled yet):
+Runway state group coding (in flags):
     Thunderstorm RETS
     Freezing rain REFZRA
     Freezing drizzle REFZDZ

@@ -76,6 +76,11 @@ decode_std = (tok, res) ->
     # no significant weather
     return
 
+  if RWY_STATE[tok]
+    # runway state
+    (res.flg ?= []).push tok
+    return
+
   if tok is "TEMPO" or tok is "BECMG"
     # temporary (2 hrs) data or trend
     (res.flg ?= []).push tok
@@ -257,5 +262,27 @@ x.PRW_RUS =
   SQ:   "шквал"
   GR:   "град"
 #-
+
+RWY_STATE =
+  RETS:   "Thunderstorm"
+  REFZRA: "Freezing rain"
+  REFZDZ: "Freezing drizzle"
+  RERA:   "Moderate or heavy rain"
+  RESN:   "Moderate or heavy snow"
+  REDZ:   "Moderate or heavy drizzle"
+  REPL:   "Moderate or heavy ice pellets"
+  RESG:   "Moderate or heavy snow grains"
+  RESHRA: "Moderate or heavy showers of rain"
+  RESHSN: "Moderate or heavy showers of snow"
+  RESHGS: "Moderate or heavy shower of small hail"
+  RESHGS: "Moderate or heavy showers of snow pellets"
+  RESHGR: "Moderate or heavy showers of hail"
+  REBLSN: "Moderate or heavy blowing snow"
+  RESS:   "Sandstorm"
+  REDS:   "Dust storm"
+  REFC:   "Funnel cloud"
+  REVA:   "Volcanic ash"
+#-
+x.RWY_STATE = RWY_STATE
 
 #.
