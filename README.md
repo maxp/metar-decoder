@@ -37,3 +37,24 @@ and returns following structure:
     err: error message
 
 Momentjs used for UTC date handling.
+
+
+Additional flags (not handled yet):
+    Thunderstorm RETS
+    Freezing rain REFZRA
+    Freezing drizzle REFZDZ
+    Moderate or heavy rain RERA
+    Moderate or heavy snow RESN
+    Moderate or heavy drizzle REDZ
+    Moderate or heavy ice pellets REPL
+    Moderate or heavy snow grains RESG
+    Moderate or heavy showers of rain RESHRA
+    Moderate or heavy showers of snow RESHSN
+    Moderate or heavy shower of small hail RESHGS
+    Moderate or heavy showers of snow pellets RESHGS
+    Moderate or heavy showers of hail RESHGR
+    Moderate or heavy blowing snow REBLSN
+    Sandstorm RESS
+    Dust storm REDS
+    Funnel cloud REFC
+    Volcanic ash REVA
