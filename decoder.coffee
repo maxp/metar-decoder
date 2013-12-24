@@ -15,13 +15,21 @@ x.decode = (s) ->
   s = s.substr(0, t) if t > -1
   tokens = s.split(" ")
   tokens.pop() if tokens[tokens.length-1] is ""
-
-  if tokens.length < 5
-    return {err: "no_data"}
+  
+  return {err: "no_data"} if tokens.length < 5
 
   ct = 0
-  ct += 1 if /^\d\d\d\d\/\d\d\/\d\d/.test tokens[ct]
-  ct += 1 if /^\d\d:\d\d/.test tokens[ct]
+
+  ts_date = tokens[ct].match /^(\d\d\d\d)\/(\d\d)\/(\d\d)/
+  return {err: "no_ts"} if not ts_date
+  ct += 1
+  ts_time = tokens[ct].match /^(\d\d):(\d\d)/
+  return {err: "no_ts"} if not ts_time
+  ct += 1
+
+  ts = moment.utc(ts_date[0]+" "+ts_time[0], "YYYY/MM/DD HH:mm", true)
+  return {err: "no_ts"} if not ts.isValid()
+
   ct += 1 if tokens[ct] is "METAR"
   ct += 1 if tokens[ct] is "SPECI"
 
@@ -31,15 +39,17 @@ x.decode = (s) ->
   else
     ct += 1
 
-  res = {icao: icao}
+  res = {icao: icao, ts:ts.toDate()}
 
   t = tokens[ct].match /^(\d\d)(\d\d)(\d\d)Z$/
   if not t
     res.err = "invalid time"
     return res
 
-  res.ts = moment.utc().date(t[1]).hours(t[2]).minutes(t[3])\
-                    .seconds(0).milliseconds(0).toDate()
+  # NOTE: compare timestamps
+  # = moment.utc().date(t[1]).hours(t[2]).minutes(t[3])\
+  #                  .seconds(0).milliseconds(0).toDate()
+
   ct += 1
 
   ct += 1 if tokens[ct] is "AUTO"
