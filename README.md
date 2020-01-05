@@ -2,7 +2,7 @@ metar-decoder
 =============
 
 [github.com/maxp/metar-decoder](http://github.com/maxp/metar-decoder) -
-CoffeeScript routine to decode METAR data.
+JavaScript routine to decode METAR data.
 
 
 Function decode(metar_string) parses METAR data
@@ -59,3 +59,4 @@ Runway state group coding (in flags):
     Dust storm REDS
     Funnel cloud REFC
     Volcanic ash REVA
+
